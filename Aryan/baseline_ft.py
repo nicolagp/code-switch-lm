@@ -12,7 +12,7 @@ from sklearn.metrics import f1_score
 dataset = load_dataset("lince", "sa_spaeng")
 ##Load the multilingual XLM roberta
 tokenizer = AutoTokenizer.from_pretrained("xlm-roberta-base")
-model = AutoModel.from_pretrained("xlm-roberta-base")
+model = AutoModel.from_pretrained("./sa_roberta_ft/checkpoint-4500")
 
 train_dataset = dataset['train']
 val_dataset = dataset['validation']
@@ -26,12 +26,13 @@ X_train = []
 X_val = []
 X_test = []
 
-device = 0 
-#feature_extractor = FeatureExtractionPipeline(model=model, tokenizer=tokenizer, device=device, framework='pt', return_tensors=True)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model.to(device)
+feature_extractor = FeatureExtractionPipeline(model=model, tokenizer=tokenizer, device=device, framework='pt', return_tensors=True)
 
 for elem in tqdm(train_dataset):
-#    embed = feature_extractor(''.join(elem["words"]))
-#    X_train.append(embed.mean(axis=1))
+    embed = feature_extractor(''.join(elem["words"]))
+    X_train.append(embed.mean(axis=1))
     #print(elem['sa'])
     if elem['sa'] == 'positive':
         y_train.append(1)
@@ -43,8 +44,8 @@ for elem in tqdm(train_dataset):
 #print(torch.cat(X_train, dim=0).shape)
 
 for elem in tqdm(test_dataset):
-#    embed = feature_extractor(''.join(elem["words"]))
-#    X_test.append(embed.mean(axis=1))
+    embed = feature_extractor(''.join(elem["words"]))
+    X_test.append(embed.mean(axis=1))
     if elem['sa'] == 'positive':
         y_test.append(1)
     elif elem['sa'] == 'neutral':
@@ -53,8 +54,8 @@ for elem in tqdm(test_dataset):
         y_test.append(0)
 
 for elem in tqdm(val_dataset):
-    #embed = feature_extractor(''.join(elem["words"]))
-    #X_val.append(embed.mean(axis=1))
+    embed = feature_extractor(''.join(elem["words"]))
+    X_val.append(embed.mean(axis=1))
     if elem['sa'] == 'positive':
         y_val.append(1)
     elif elem['sa'] == 'neutral':
@@ -63,13 +64,17 @@ for elem in tqdm(val_dataset):
         y_val.append(0)
 
 print(len(y_val), len(y_test), len(y_train))
-#torch.save(torch.cat(X_train, dim=0), 'lince_sa_train.pt')
-#torch.save(torch.cat(X_test, dim=0), 'lince_sa_test.pt')
-#torch.save(torch.cat(X_val, dim=0), 'lince_sa_val.pt')
+torch.save(torch.cat(X_train, dim=0), 'lince_sa_train_ft.pt')
+torch.save(torch.cat(X_test, dim=0), 'lince_sa_test_ft.pt')
+torch.save(torch.cat(X_val, dim=0), 'lince_sa_val_ft.pt')
 
-X_train = torch.load('lince_sa_train.pt')
-X_test = torch.load('lince_sa_test.pt')
-X_val = torch.load('lince_sa_val.pt')
+X_train = torch.cat(X_train, dim=0)
+X_test = torch.cat(X_test, dim=0)
+X_val = torch.cat(X_val, dim=0)
+
+#X_train = torch.load('lince_sa_train.pt')
+#X_test = torch.load('lince_sa_test.pt')
+#X_val = torch.load('lince_sa_val.pt')
 
 k = 5  # Number of neighbors (you can adjust this value)
 knn_classifier = KNeighborsClassifier(n_neighbors=k)
