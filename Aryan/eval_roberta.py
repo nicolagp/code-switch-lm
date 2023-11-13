@@ -13,7 +13,7 @@ from sklearn.metrics import f1_score
 dataset = load_dataset("lince", "sa_spaeng")
 
 tokenizer = AutoTokenizer.from_pretrained("xlm-roberta-base")
-model = AutoModelForSequenceClassification.from_pretrained("./roberta_ft_2/checkpoint-1500", num_labels=3)
+model = AutoModelForSequenceClassification.from_pretrained("roberta_ft_3/checkpoint-1500", num_labels=3)
 
 def tokenize(batch):
     return tokenizer(' '.join(batch['words']), padding='max_length')
@@ -33,14 +33,13 @@ tokenized_dataset = dataset.map(tokenize, batched=False)
 tokenized_dataset = tokenized_dataset.rename_column("sa", "label")
 tokenized_dataset = tokenized_dataset.map(fix_labels, batched=False)
 tokenized_dataset.set_format("pt", columns=["input_ids", "attention_mask"], output_all_columns=True)
-
+tokenized_dataset = tokenized_dataset.remove_columns(['words', 'idx', 'lid'])
 
 #print(tokenized_dataset["validation"])
 
 
 # Inference on validation split
 val_dataset = tokenized_dataset["validation"]
-val_dataset = val_dataset.remove_columns(['words', 'idx', 'lid'])
 print(val_dataset)
 val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=8)
 val_preds = []
@@ -59,11 +58,10 @@ for batch in tqdm(val_dataloader):
     with torch.no_grad():
         outputs = model(**batch)
         logits = outputs.logits
-        print(logits)
         preds = logits.argmax(dim=-1).cpu().numpy().tolist()
-        print(preds)
-        break
         val_preds.extend(preds)
+        print(logits)
+        break
 print(val_preds, val_labels)
 ## Compute accuracy, precision, recall, f1
 accuracy = metrics.accuracy_score(val_labels, val_preds)
